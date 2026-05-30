@@ -73,6 +73,14 @@
   .tab:hover{border-color:#c4c4c4}
   .tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
 
+  .kindtoggle{display:flex;gap:8px;margin:8px 0 0}
+  .kind{flex:1;text-align:center;padding:10px;border:1px solid var(--border);
+    border-radius:999px;background:var(--bg);color:var(--muted-2);
+    font:inherit;font-size:14px;font-weight:600;cursor:pointer;
+    transition:border-color .15s,background .15s,color .15s}
+  .kind:hover{border-color:#c4c4c4}
+  .kind.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
   .card{border:1px solid var(--border);background:var(--bg);
     border-radius:12px;padding:24px 22px 26px}
   .step{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 18px}
@@ -190,6 +198,11 @@
     <label class="row">Base level: <span id="baseVal">100%</span></label>
     <input type="range" id="baseVol" min="5" max="100" value="100">
 
+    <label class="row">Making</label>
+    <div class="kindtoggle">
+      <button type="button" class="kind on" data-kind="intro">Intro</button>
+      <button type="button" class="kind" data-kind="outro">Outro</button>
+    </div>
     <label class="row">Export filename</label>
     <input type="text" id="outName" value="zonk-intro.mp3">
     <button class="btn" id="bakeBtn" disabled>Bake bumper</button>
@@ -221,16 +234,22 @@ function clear(el){ el.innerHTML=''; }
 /* ---- show id: drives which bumpers we use ---- */
 const showSel=document.getElementById('showSel');
 function showId(){ return (showSel.value||'zonk').trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'')||'zonk'; }
+let bumperKind='intro';
 function refreshShow(){
   const id=showId();
   document.getElementById('needIntro').textContent=id+'-intro.mp3';
   document.getElementById('needOutro').textContent=id+'-outro.mp3';
-  const on=document.getElementById('outName');
-  // keep the suffix the user is on (intro/outro), just reprefix to the current show
-  const suffix=/-outro\.mp3$/.test(on.value)?'-outro.mp3':'-intro.mp3';
-  on.value=id+suffix;
+  document.getElementById('outName').value=id+'-'+bumperKind+'.mp3';
 }
 showSel.oninput=refreshShow;
+
+/* ---- intro / outro toggle (drives the export filename) ---- */
+document.querySelectorAll('.kind').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.kind').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  bumperKind=b.dataset.kind;
+  refreshShow();
+});
 
 /* ---- tabs ---- */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
