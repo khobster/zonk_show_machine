@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Zonk Show — Overnight Board</title>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --muted:#4a5a5a;
+    --muted-2:#5a6868;
+    --faint:#7a8888;
+    --border:#e4e4e4;
+    --border-warm:#ece7df;
+    --bg:#fff;
+    --tint:#f7fafd;
+    --blue:#1a6fd0;
+    --blue-hot:#1559b3;
+    --green:#1a8f4f;
+    --red:#d6453c;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{height:100%}
+  body{
+    min-height:100%;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+    display:flex;justify-content:center;
+    padding:40px 24px 80px;
+    padding-top:max(40px,env(safe-area-inset-top));
+  }
+  .wrap{width:100%;max-width:560px}
+
+  .brand{
+    display:inline-flex;align-items:center;gap:12px;
+    margin:0 auto 12px;width:100%;justify-content:center;
+  }
+  .brand .mark{font-size:34px;line-height:1;user-select:none}
+  .brand .wordmark{
+    font-size:34px;font-weight:700;letter-spacing:-0.01em;
+    color:var(--ink);line-height:1;
+  }
+  .tagline{
+    text-align:center;font-size:15px;color:var(--muted);
+    margin:0 auto 4px;line-height:1.45;
+  }
+  .subtagline{
+    text-align:center;font-size:14px;color:var(--faint);
+    font-style:italic;margin:0 auto 32px;line-height:1.45;
+  }
+
+  .tabs{display:flex;gap:8px;margin:0 0 14px}
+  .tab{
+    flex:1;text-align:center;padding:11px;border:1px solid var(--border);
+    border-radius:999px;background:var(--bg);color:var(--muted-2);
+    font-size:14px;font-weight:600;cursor:pointer;user-select:none;
+    transition:border-color .15s,background .15s,color .15s;
+  }
+  .tab:hover{border-color:#c4c4c4}
+  .tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  .card{border:1px solid var(--border);background:var(--bg);
+    border-radius:12px;padding:24px 22px 26px}
+  .step{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 18px}
+
+  .drop{
+    border:2px dashed #cdd6d6;border-radius:12px;
+    padding:30px 18px;text-align:center;cursor:pointer;
+    transition:.15s;margin-bottom:14px;background:var(--tint);
+  }
+  .drop:hover,.drop.hot{border-color:var(--blue);background:#eef5fc;color:var(--ink)}
+  .drop .big{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+  .drop .small{font-size:13px;color:var(--faint);margin-top:6px}
+  .drop.loaded{border-style:solid;border-color:var(--green);color:var(--green);background:#f0faf3}
+
+  label.row{display:block;margin:18px 0 8px;font-size:14px;color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--blue)}
+  input[type=text]{
+    width:100%;background:var(--bg);border:2px solid var(--border);
+    border-radius:12px;color:var(--ink);font:inherit;font-size:16px;padding:13px 14px;
+    outline:none;transition:border-color .15s}
+  input[type=text]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(34,102,200,.18)}
+
+  .btn{
+    width:100%;margin-top:22px;padding:15px;border:none;cursor:pointer;
+    font:inherit;font-size:17px;font-weight:600;border-radius:999px;
+    background:var(--blue);color:#fff;
+    transition:background .15s,transform .05s,box-shadow .15s}
+  .btn:hover{background:var(--blue-hot)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{background:#c9d3d3;color:#fff;cursor:default;box-shadow:none}
+
+  .meter{height:6px;background:#eef1f1;border-radius:999px;margin-top:16px;overflow:hidden}
+  .meter > i{display:block;height:100%;width:0;background:var(--blue);transition:width .3s}
+
+  .log{margin-top:16px;font-family:var(--mono);font-size:12px;line-height:1.7;
+    color:var(--faint);min-height:20px;white-space:pre-wrap;word-break:break-word}
+  .log .ok{color:var(--green)}
+  .log .err{color:var(--red)}
+
+  a.dl{display:block;text-align:center;margin-top:16px;
+    background:var(--blue);color:#fff;border-radius:999px;
+    padding:14px;text-decoration:none;font-weight:600;font-size:16px;
+    transition:background .15s,transform .05s}
+  a.dl:hover{background:var(--blue-hot)}
+  a.dl:active{transform:translateY(1px)}
+
+  .hide{display:none}
+  .note{font-size:13px;color:var(--faint);line-height:1.55;margin-top:18px;
+    border-top:1px solid var(--border);padding-top:14px}
+  .note b{color:var(--muted-2)}
+  audio{width:100%;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <span class="mark">🎙️</span>
+    <span class="wordmark">the zonk show</span>
+  </div>
+  <p class="tagline">Overnight production board.</p>
+  <p class="subtagline">Drop in a voice memo, get back a finished episode.</p>
+
+  <div class="tabs">
+    <div class="tab on" data-tab="show">Tonight's show</div>
+    <div class="tab" data-tab="setup">Set up bumpers</div>
+  </div>
+
+  <!-- ===== TONIGHT'S SHOW ===== -->
+  <div class="card" id="show">
+    <p class="step">Drop in tonight's voice memo. Intro and outro get added, audio gets leveled, you get one file to upload.</p>
+    <div class="drop" id="voiceDrop">
+      <input type="file" id="voiceInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
+      <div class="big" id="voiceLabel">Drop voice memo</div>
+      <div class="small">or tap to pick the file you AirDropped over</div>
+    </div>
+    <button class="btn" id="goBtn" disabled>Assemble episode</button>
+    <div class="meter"><i id="bar"></i></div>
+    <div class="log" id="showLog"></div>
+    <div id="showOut"></div>
+    <div class="note">Needs <b>intro.mp3</b> and <b>outro.mp3</b> sitting next to this page. Don't have them yet? Use the <b>Set up bumpers</b> tab once.</div>
+  </div>
+
+  <!-- ===== SETUP ===== -->
+  <div class="card hide" id="setup">
+    <p class="step">One time. Lay your rain under a bumper, export it, commit it to the repo as intro.mp3 or outro.mp3.</p>
+    <div class="drop" id="bumpDrop">
+      <input type="file" id="bumpInput" accept="audio/*" class="hide">
+      <div class="big" id="bumpLabel">Drop a bumper</div>
+      <div class="small">your recorded intro or outro (no rain yet)</div>
+    </div>
+    <div class="drop" id="rainDrop">
+      <input type="file" id="rainInput" accept="audio/*" class="hide">
+      <div class="big" id="rainLabel">Drop rain track</div>
+      <div class="small">the pouring-rain loop</div>
+    </div>
+    <label class="row">Rain level under voice: <span id="rainVal">18%</span></label>
+    <input type="range" id="rainLevel" min="3" max="45" value="18">
+    <label class="row">Export filename</label>
+    <input type="text" id="outName" value="intro.mp3">
+    <button class="btn" id="bakeBtn" disabled>Bake bumper</button>
+    <div class="meter"><i id="bar2"></i></div>
+    <div class="log" id="setupLog"></div>
+    <div id="setupOut"></div>
+    <div class="note">Do this twice. Once named <b>intro.mp3</b>, once named <b>outro.mp3</b>, then drop both files into your GitHub repo next to index.html.</div>
+  </div>
+</div>
+
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+const ffmpeg = createFFmpeg({
+  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+});
+let loaded = false;
+async function boot(logEl, bar){
+  if(loaded) return;
+  log(logEl,'warming up the board…');
+  ffmpeg.setProgress(({ratio})=>{ if(bar && ratio>0) bar.style.width=Math.min(100,ratio*100)+'%'; });
+  await ffmpeg.load();
+  loaded = true;
+  log(logEl,'board is live.');
+}
+function log(el,msg,cls=''){ el.innerHTML += `<div class="${cls}">${msg}</div>`; el.scrollTop=el.scrollHeight; }
+function clear(el){ el.innerHTML=''; }
+
+/* ---- tabs ---- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById('show').classList.toggle('hide', t.dataset.tab!=='show');
+  document.getElementById('setup').classList.toggle('hide', t.dataset.tab!=='setup');
+});
+
+/* ---- generic drop wiring ---- */
+function wireDrop(dropId, inputId, labelId, onFile){
+  const drop=document.getElementById(dropId), input=document.getElementById(inputId), label=document.getElementById(labelId);
+  drop.onclick=()=>input.click();
+  input.onchange=()=>{ if(input.files[0]) set(input.files[0]); };
+  drop.ondragover=e=>{e.preventDefault();drop.classList.add('hot')};
+  drop.ondragleave=()=>drop.classList.remove('hot');
+  drop.ondrop=e=>{e.preventDefault();drop.classList.remove('hot');
+    if(e.dataTransfer.files[0]){ input.files=e.dataTransfer.files; set(e.dataTransfer.files[0]); }};
+  function set(f){ drop.classList.add('loaded'); label.textContent='✓ '+f.name; onFile(f); }
+}
+
+/* ---- TONIGHT'S SHOW ---- */
+let voiceFile=null;
+const goBtn=document.getElementById('goBtn');
+wireDrop('voiceDrop','voiceInput','voiceLabel',f=>{ voiceFile=f; goBtn.disabled=false; });
+
+goBtn.onclick=async()=>{
+  const logEl=document.getElementById('showLog'), out=document.getElementById('showOut'), bar=document.getElementById('bar');
+  clear(logEl); out.innerHTML=''; bar.style.width='0'; goBtn.disabled=true;
+  try{
+    await boot(logEl,bar);
+    log(logEl,'fetching your bumpers…');
+    let intro,outro;
+    try{ intro=await fetchFile('intro.mp3'); outro=await fetchFile('outro.mp3'); }
+    catch(e){ throw new Error('Couldn\'t find intro.mp3 / outro.mp3 next to this page. Make them in the Set up bumpers tab first.'); }
+    const ext=(voiceFile.name.split('.').pop()||'m4a').toLowerCase();
+    ffmpeg.FS('writeFile','intro.mp3',intro);
+    ffmpeg.FS('writeFile','outro.mp3',outro);
+    ffmpeg.FS('writeFile','voice.'+ext, await fetchFile(voiceFile));
+    log(logEl,'stitching intro + you + outro, then leveling to -16 LUFS…');
+    await ffmpeg.run(
+      '-i','intro.mp3','-i','voice.'+ext,'-i','outro.mp3',
+      '-filter_complex',
+      '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
+      '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
+      '[2:a]aresample=44100,aformat=channel_layouts=stereo[a2];'+
+      '[a0][a1][a2]concat=n=3:v=0:a=1[c];'+
+      '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
+      '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
+    );
+    const data=ffmpeg.FS('readFile','out.mp3');
+    finish(out, data, logEl, 'zonk-'+stamp()+'.mp3', 'EPISODE READY');
+    bar.style.width='100%';
+  }catch(err){ log(logEl, err.message, 'err'); }
+  goBtn.disabled=false;
+};
+
+/* ---- SETUP ---- */
+let bumpFile=null, rainFile=null;
+const bakeBtn=document.getElementById('bakeBtn');
+const rl=document.getElementById('rainLevel'), rv=document.getElementById('rainVal');
+rl.oninput=()=>rv.textContent=rl.value+'%';
+function checkBake(){ bakeBtn.disabled=!(bumpFile&&rainFile); }
+wireDrop('bumpDrop','bumpInput','bumpLabel',f=>{bumpFile=f;checkBake();});
+wireDrop('rainDrop','rainInput','rainLabel',f=>{rainFile=f;checkBake();});
+
+bakeBtn.onclick=async()=>{
+  const logEl=document.getElementById('setupLog'), out=document.getElementById('setupOut'), bar=document.getElementById('bar2');
+  clear(logEl); out.innerHTML=''; bar.style.width='0'; bakeBtn.disabled=true;
+  try{
+    await boot(logEl,bar);
+    const be=(bumpFile.name.split('.').pop()||'m4a').toLowerCase();
+    const re=(rainFile.name.split('.').pop()||'mp3').toLowerCase();
+    ffmpeg.FS('writeFile','bump.'+be, await fetchFile(bumpFile));
+    ffmpeg.FS('writeFile','rain.'+re, await fetchFile(rainFile));
+    const vol=(rl.value/100).toFixed(3);
+    log(logEl,'laying rain under the bumper at '+rl.value+'%…');
+    await ffmpeg.run(
+      '-i','bump.'+be,'-i','rain.'+re,
+      '-filter_complex',
+      '[0:a]aresample=44100,aformat=channel_layouts=stereo[v];'+
+      '[1:a]aresample=44100,aformat=channel_layouts=stereo,volume='+vol+'[r];'+
+      '[v][r]amix=inputs=2:duration=first:normalize=0[mix]',
+      '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
+    );
+    const data=ffmpeg.FS('readFile','baked.mp3');
+    const name=(document.getElementById('outName').value||'intro.mp3').trim();
+    finish(out, data, logEl, name, 'BUMPER BAKED');
+    bar.style.width='100%';
+  }catch(err){ log(logEl, err.message, 'err'); }
+  bakeBtn.disabled=false;
+};
+
+/* ---- shared finish: preview + download ---- */
+function finish(out, data, logEl, filename, label){
+  const blob=new Blob([data.buffer],{type:'audio/mpeg'});
+  const url=URL.createObjectURL(blob);
+  log(logEl, label+' →', 'ok');
+  const audio=document.createElement('audio'); audio.controls=true; audio.src=url;
+  const a=document.createElement('a'); a.className='dl'; a.href=url; a.download=filename;
+  a.textContent='⤓ Save '+filename;
+  out.appendChild(audio); out.appendChild(a);
+}
+function stamp(){ const d=new Date();
+  return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+</script>
+</body>
+</html>

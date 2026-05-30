@@ -1,0 +1,8 @@
+# Static site, no build step. Publish from the repo root.
+# NOTE: COOP/COEP cross-origin-isolation headers are intentionally NOT set.
+# The pinned single-threaded ffmpeg core (0.11.x) works without them.
+# Adding them would break the CDN core load. See CLAUDE.md.
+
+[build]
+  publish = "."
+  command = ""
