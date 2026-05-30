@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Zonk Show — Overnight Board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%99%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <style>
   :root{
@@ -99,6 +100,7 @@
   .meter{height:6px;background:#eef1f1;border-radius:999px;margin-top:16px;overflow:hidden}
   .meter > i{display:block;height:100%;width:0;background:var(--blue);transition:width .3s}
 
+  .hint{margin-top:14px;font-size:12px;color:var(--faint);line-height:1.55;text-align:center}
   .log{margin-top:16px;font-family:var(--mono);font-size:12px;line-height:1.7;
     color:var(--faint);min-height:20px;white-space:pre-wrap;word-break:break-word}
   .log .ok{color:var(--green)}
@@ -142,6 +144,7 @@
     </div>
     <button class="btn" id="goBtn" disabled>Assemble episode</button>
     <div class="meter"><i id="bar"></i></div>
+    <p class="hint">First load pulls the audio engine, about 25MB. Give it ~20 seconds. It caches after that.</p>
     <div class="log" id="showLog"></div>
     <div id="showOut"></div>
     <div class="note">Needs <b>intro.mp3</b> and <b>outro.mp3</b> sitting next to this page. Don't have them yet? Use the <b>Set up bumpers</b> tab once.</div>
@@ -166,6 +169,7 @@
     <input type="text" id="outName" value="intro.mp3">
     <button class="btn" id="bakeBtn" disabled>Bake bumper</button>
     <div class="meter"><i id="bar2"></i></div>
+    <p class="hint">First load pulls the audio engine, about 25MB. Give it ~20 seconds. It caches after that.</p>
     <div class="log" id="setupLog"></div>
     <div id="setupOut"></div>
     <div class="note">Do this twice. Once named <b>intro.mp3</b>, once named <b>outro.mp3</b>, then drop both files into your GitHub repo next to index.html.</div>
