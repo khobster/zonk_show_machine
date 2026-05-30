@@ -12,19 +12,32 @@ browser — no server, no install. Deployed as a flat static site (Netlify or Gi
 4. App prepends `intro.mp3`, appends `outro.mp3`, normalizes loudness to -16 LUFS, outputs one MP3.
 5. Host uploads that MP3 to Spotify for Creators (Spotify removed in-app intro/bg-music tools in 2025; upload-only now).
 
+## Multi-show (added 2026-05-30)
+One machine runs many podcasts. A **Show** field at the top holds a show id (default `zonk`).
+Everything keys off that id: the nightly tab fetches `<id>-intro.mp3` / `<id>-outro.mp3`, and the
+builder prefills export names with it. To add a client show, build their two files, commit them at
+the repo root, and type their id in the Show field. No code change needed. (Optional: add an
+`<option>` to the `#showList` datalist so it autocompletes.) The id is slugified
+(lowercased, non `[a-z0-9-]` → `-`).
+
 ## Two modes (tabs in index.html)
-- **TONIGHT'S SHOW**: concat `intro.mp3` + voice memo + `outro.mp3`, then `loudnorm=I=-16:TP=-1.5:LRA=11`.
-- **SET UP BUMPERS** (one-time): mixes a rain track UNDER a raw bumper at an adjustable level,
-  exports a finished `intro.mp3` / `outro.mp3`. Rain lives only in the bumpers, never under the whole show.
+- **TONIGHT'S SHOW**: concat `<show>-intro.mp3` + voice memo + `<show>-outro.mp3`, then `loudnorm=I=-16:TP=-1.5:LRA=11`.
+- **BUILD BUMPERS** (one-time per show): drop a **base track** (a music bed, or a finished clip on its
+  own) plus an **optional overlay** (a voice tag/sting/sound). Sliders set where the overlay comes in
+  (position, as a fraction of the base length via `adelay`) and the base/overlay levels, then it
+  `amix`es overlay over base (`duration=first`, `normalize=0`) and exports an mp3. With NO overlay it
+  just re-encodes the base at the chosen level — that is how you turn a finished clip into a bumper.
+  Base duration for the position slider is read in-browser via an `<audio>` metadata probe, not ffmpeg.
 
 ## File layout (keep it flat — no folders)
 ```
-index.html      <- the entire app
-intro.mp3       <- produced once via the Set Up Bumpers tab, committed here
-outro.mp3       <- produced once via the Set Up Bumpers tab, committed here
-netlify.toml    <- minimal config
+index.html        <- the entire app
+zonk-intro.mp3    <- built once via the Build Bumpers tab, committed here
+zonk-outro.mp3    <- built once via the Build Bumpers tab, committed here
+<client>-intro.mp3 / <client>-outro.mp3   <- one pair per additional show
+netlify.toml      <- minimal config
 ```
-The app fetches `intro.mp3` / `outro.mp3` by RELATIVE path, so they must sit next to index.html at the repo root.
+The app fetches `<show>-intro.mp3` / `<show>-outro.mp3` by RELATIVE path, so they must sit next to index.html at the repo root.
 
 ## DO NOT BREAK THESE DECISIONS (ask before changing)
 - **ffmpeg version is pinned on purpose**: `@ffmpeg/ffmpeg@0.11.6` + `@ffmpeg/core@0.11.0`, the
@@ -49,5 +62,5 @@ The app fetches `intro.mp3` / `outro.mp3` by RELATIVE path, so they must sit nex
 ## Reasonable next tasks
 - Get this into a fresh GitHub repo and deploy to Netlify.
 - After deploy, open the live URL and confirm the engine loads (watch the log line "board is live.").
-- Produce intro.mp3 + outro.mp3 via the Set Up Bumpers tab and commit them.
+- Produce zonk-intro.mp3 + zonk-outro.mp3 via the Build Bumpers tab and commit them.
 - Optional niceties: favicon, a tiny "first load may take ~20s" hint, drag-and-drop polish.

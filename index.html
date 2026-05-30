@@ -39,22 +39,29 @@
   .wrap{width:100%;max-width:560px}
 
   .brand{
-    display:inline-flex;align-items:center;gap:12px;
-    margin:0 auto 12px;width:100%;justify-content:center;
+    display:flex;justify-content:center;
+    margin:0 auto 14px;width:100%;
   }
-  .brand .mark{font-size:34px;line-height:1;user-select:none}
-  .brand .wordmark{
-    font-size:34px;font-weight:700;letter-spacing:-0.01em;
-    color:var(--ink);line-height:1;
-  }
+  .brand .logo{width:280px;max-width:78%;height:auto;display:block}
   .tagline{
     text-align:center;font-size:15px;color:var(--muted);
     margin:0 auto 4px;line-height:1.45;
   }
   .subtagline{
     text-align:center;font-size:14px;color:var(--faint);
-    font-style:italic;margin:0 auto 32px;line-height:1.45;
+    font-style:italic;margin:0 auto 28px;line-height:1.45;
   }
+
+  .showbar{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    margin:0 0 20px;font-size:14px;color:var(--muted-2);
+  }
+  .showbar label{font-weight:600;color:var(--ink)}
+  .showbar input{
+    font:inherit;font-size:15px;padding:8px 12px;border:2px solid var(--border);
+    border-radius:999px;background:var(--bg);color:var(--ink);outline:none;
+    min-width:180px;text-align:center;transition:border-color .15s}
+  .showbar input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(34,102,200,.18)}
 
   .tabs{display:flex;gap:8px;margin:0 0 14px}
   .tab{
@@ -72,15 +79,17 @@
 
   .drop{
     border:2px dashed #cdd6d6;border-radius:12px;
-    padding:30px 18px;text-align:center;cursor:pointer;
+    padding:26px 18px;text-align:center;cursor:pointer;
     transition:.15s;margin-bottom:14px;background:var(--tint);
   }
   .drop:hover,.drop.hot{border-color:var(--blue);background:#eef5fc;color:var(--ink)}
   .drop .big{font-size:18px;font-weight:700;letter-spacing:-0.01em}
   .drop .small{font-size:13px;color:var(--faint);margin-top:6px}
   .drop.loaded{border-style:solid;border-color:var(--green);color:var(--green);background:#f0faf3}
+  .drop.optional .big{font-weight:600}
 
   label.row{display:block;margin:18px 0 8px;font-size:14px;color:var(--ink)}
+  label.row span{color:var(--muted-2);font-weight:600}
   input[type=range]{width:100%;accent-color:var(--blue)}
   input[type=text]{
     width:100%;background:var(--bg);border:2px solid var(--border);
@@ -123,20 +132,27 @@
 <body>
 <div class="wrap">
   <div class="brand">
-    <span class="mark">🎙️</span>
-    <span class="wordmark">the zonk show</span>
+    <img class="logo" src="logo.png" alt="The Zonk Show" width="280" height="174">
   </div>
   <p class="tagline">Overnight production board.</p>
   <p class="subtagline">Drop in a voice memo, get back a finished episode.</p>
 
+  <div class="showbar">
+    <label for="showSel">Show</label>
+    <input id="showSel" list="showList" value="zonk" autocomplete="off" spellcheck="false">
+    <datalist id="showList">
+      <option value="zonk">
+    </datalist>
+  </div>
+
   <div class="tabs">
     <div class="tab on" data-tab="show">Tonight's show</div>
-    <div class="tab" data-tab="setup">Set up bumpers</div>
+    <div class="tab" data-tab="setup">Build bumpers</div>
   </div>
 
   <!-- ===== TONIGHT'S SHOW ===== -->
   <div class="card" id="show">
-    <p class="step">Drop in tonight's voice memo. Intro and outro get added, audio gets leveled, you get one file to upload.</p>
+    <p class="step">Drop in tonight's voice memo. The intro and outro for this show get added, audio gets leveled, you get one file to upload.</p>
     <div class="drop" id="voiceDrop">
       <input type="file" id="voiceInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
       <div class="big" id="voiceLabel">Drop voice memo</div>
@@ -147,32 +163,41 @@
     <p class="hint">First load pulls the audio engine, about 25MB. Give it ~20 seconds. It caches after that.</p>
     <div class="log" id="showLog"></div>
     <div id="showOut"></div>
-    <div class="note">Needs <b>intro.mp3</b> and <b>outro.mp3</b> sitting next to this page. Don't have them yet? Use the <b>Set up bumpers</b> tab once.</div>
+    <div class="note">Uses <b id="needIntro">zonk-intro.mp3</b> and <b id="needOutro">zonk-outro.mp3</b> sitting next to this page. Don't have them yet? Build them once in the <b>Build bumpers</b> tab.</div>
   </div>
 
-  <!-- ===== SETUP ===== -->
+  <!-- ===== SETUP / BUILD BUMPERS ===== -->
   <div class="card hide" id="setup">
-    <p class="step">One time. Lay your rain under a bumper, export it, commit it to the repo as intro.mp3 or outro.mp3.</p>
+    <p class="step">Build a bumper. Drop a base track. Optionally lay a voice tag or sound on top, set where it comes in and how loud, then export. Do this once per show to make your intro and outro.</p>
     <div class="drop" id="bumpDrop">
       <input type="file" id="bumpInput" accept="audio/*" class="hide">
-      <div class="big" id="bumpLabel">Drop a bumper</div>
-      <div class="small">your recorded intro or outro (no rain yet)</div>
+      <div class="big" id="bumpLabel">Drop base track</div>
+      <div class="small">the music bed, or a finished clip on its own</div>
     </div>
-    <div class="drop" id="rainDrop">
-      <input type="file" id="rainInput" accept="audio/*" class="hide">
-      <div class="big" id="rainLabel">Drop rain track</div>
-      <div class="small">the pouring-rain loop</div>
+    <div class="drop optional" id="overlayDrop">
+      <input type="file" id="overlayInput" accept="audio/*" class="hide">
+      <div class="big" id="overlayLabel">Drop overlay (optional)</div>
+      <div class="small">a voice tag, sting, or sound to lay on top</div>
     </div>
-    <label class="row">Rain level under voice: <span id="rainVal">18%</span></label>
-    <input type="range" id="rainLevel" min="3" max="45" value="18">
+
+    <div id="overlayControls" class="hide">
+      <label class="row">Tag comes in at: <span id="posVal">middle</span></label>
+      <input type="range" id="overlayPos" min="0" max="100" value="50">
+      <label class="row">Overlay level: <span id="ovlVal">100%</span></label>
+      <input type="range" id="overlayVol" min="5" max="100" value="100">
+    </div>
+
+    <label class="row">Base level: <span id="baseVal">100%</span></label>
+    <input type="range" id="baseVol" min="5" max="100" value="100">
+
     <label class="row">Export filename</label>
-    <input type="text" id="outName" value="intro.mp3">
+    <input type="text" id="outName" value="zonk-intro.mp3">
     <button class="btn" id="bakeBtn" disabled>Bake bumper</button>
     <div class="meter"><i id="bar2"></i></div>
     <p class="hint">First load pulls the audio engine, about 25MB. Give it ~20 seconds. It caches after that.</p>
     <div class="log" id="setupLog"></div>
     <div id="setupOut"></div>
-    <div class="note">Do this twice. Once named <b>intro.mp3</b>, once named <b>outro.mp3</b>, then drop both files into your GitHub repo next to index.html.</div>
+    <div class="note">Do this twice per show. Once for the intro, once for the outro, then drop both files into your GitHub repo next to index.html. Name them to match the show, like <b>zonk-intro.mp3</b> and <b>zonk-outro.mp3</b>.</div>
   </div>
 </div>
 
@@ -192,6 +217,20 @@ async function boot(logEl, bar){
 }
 function log(el,msg,cls=''){ el.innerHTML += `<div class="${cls}">${msg}</div>`; el.scrollTop=el.scrollHeight; }
 function clear(el){ el.innerHTML=''; }
+
+/* ---- show id: drives which bumpers we use ---- */
+const showSel=document.getElementById('showSel');
+function showId(){ return (showSel.value||'zonk').trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'')||'zonk'; }
+function refreshShow(){
+  const id=showId();
+  document.getElementById('needIntro').textContent=id+'-intro.mp3';
+  document.getElementById('needOutro').textContent=id+'-outro.mp3';
+  const on=document.getElementById('outName');
+  // keep the suffix the user is on (intro/outro), just reprefix to the current show
+  const suffix=/-outro\.mp3$/.test(on.value)?'-outro.mp3':'-intro.mp3';
+  on.value=id+suffix;
+}
+showSel.oninput=refreshShow;
 
 /* ---- tabs ---- */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
@@ -221,12 +260,14 @@ wireDrop('voiceDrop','voiceInput','voiceLabel',f=>{ voiceFile=f; goBtn.disabled=
 goBtn.onclick=async()=>{
   const logEl=document.getElementById('showLog'), out=document.getElementById('showOut'), bar=document.getElementById('bar');
   clear(logEl); out.innerHTML=''; bar.style.width='0'; goBtn.disabled=true;
+  const id=showId();
+  const introName=id+'-intro.mp3', outroName=id+'-outro.mp3';
   try{
     await boot(logEl,bar);
-    log(logEl,'fetching your bumpers…');
+    log(logEl,'fetching the '+id+' bumpers…');
     let intro,outro;
-    try{ intro=await fetchFile('intro.mp3'); outro=await fetchFile('outro.mp3'); }
-    catch(e){ throw new Error('Couldn\'t find intro.mp3 / outro.mp3 next to this page. Make them in the Set up bumpers tab first.'); }
+    try{ intro=await fetchFile(introName); outro=await fetchFile(outroName); }
+    catch(e){ throw new Error('Couldn\'t find '+introName+' / '+outroName+' next to this page. Build them in the Build bumpers tab first.'); }
     const ext=(voiceFile.name.split('.').pop()||'m4a').toLowerCase();
     ffmpeg.FS('writeFile','intro.mp3',intro);
     ffmpeg.FS('writeFile','outro.mp3',outro);
@@ -243,42 +284,80 @@ goBtn.onclick=async()=>{
       '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
     );
     const data=ffmpeg.FS('readFile','out.mp3');
-    finish(out, data, logEl, 'zonk-'+stamp()+'.mp3', 'EPISODE READY');
+    finish(out, data, logEl, id+'-'+stamp()+'.mp3', 'EPISODE READY');
     bar.style.width='100%';
   }catch(err){ log(logEl, err.message, 'err'); }
   goBtn.disabled=false;
 };
 
-/* ---- SETUP ---- */
-let bumpFile=null, rainFile=null;
+/* ---- BUILD BUMPERS ---- */
+let baseFile=null, overlayFile=null, baseDur=0;
 const bakeBtn=document.getElementById('bakeBtn');
-const rl=document.getElementById('rainLevel'), rv=document.getElementById('rainVal');
-rl.oninput=()=>rv.textContent=rl.value+'%';
-function checkBake(){ bakeBtn.disabled=!(bumpFile&&rainFile); }
-wireDrop('bumpDrop','bumpInput','bumpLabel',f=>{bumpFile=f;checkBake();});
-wireDrop('rainDrop','rainInput','rainLabel',f=>{rainFile=f;checkBake();});
+const overlayControls=document.getElementById('overlayControls');
+const posR=document.getElementById('overlayPos'), posVal=document.getElementById('posVal');
+const ovlR=document.getElementById('overlayVol'), ovlVal=document.getElementById('ovlVal');
+const baseR=document.getElementById('baseVol'), baseVal=document.getElementById('baseVal');
+
+baseR.oninput=()=>baseVal.textContent=baseR.value+'%';
+ovlR.oninput=()=>ovlVal.textContent=ovlR.value+'%';
+function fmtPos(){
+  if(!baseDur){ posVal.textContent=posR.value+'%'; return; }
+  const sec=(posR.value/100)*baseDur;
+  posVal.textContent=sec.toFixed(1)+'s of '+baseDur.toFixed(1)+'s';
+}
+posR.oninput=fmtPos;
+
+function probeDuration(file){
+  return new Promise(res=>{
+    const a=document.createElement('audio'); a.preload='metadata';
+    a.onloadedmetadata=()=>{ res(isFinite(a.duration)?a.duration:0); URL.revokeObjectURL(a.src); };
+    a.onerror=()=>res(0);
+    a.src=URL.createObjectURL(file);
+  });
+}
+function checkBake(){ bakeBtn.disabled=!baseFile; }
+
+wireDrop('bumpDrop','bumpInput','bumpLabel',async f=>{
+  baseFile=f; checkBake();
+  baseDur=await probeDuration(f); fmtPos();
+});
+wireDrop('overlayDrop','overlayInput','overlayLabel',f=>{
+  overlayFile=f; overlayControls.classList.remove('hide'); fmtPos();
+});
 
 bakeBtn.onclick=async()=>{
   const logEl=document.getElementById('setupLog'), out=document.getElementById('setupOut'), bar=document.getElementById('bar2');
   clear(logEl); out.innerHTML=''; bar.style.width='0'; bakeBtn.disabled=true;
   try{
     await boot(logEl,bar);
-    const be=(bumpFile.name.split('.').pop()||'m4a').toLowerCase();
-    const re=(rainFile.name.split('.').pop()||'mp3').toLowerCase();
-    ffmpeg.FS('writeFile','bump.'+be, await fetchFile(bumpFile));
-    ffmpeg.FS('writeFile','rain.'+re, await fetchFile(rainFile));
-    const vol=(rl.value/100).toFixed(3);
-    log(logEl,'laying rain under the bumper at '+rl.value+'%…');
-    await ffmpeg.run(
-      '-i','bump.'+be,'-i','rain.'+re,
-      '-filter_complex',
-      '[0:a]aresample=44100,aformat=channel_layouts=stereo[v];'+
-      '[1:a]aresample=44100,aformat=channel_layouts=stereo,volume='+vol+'[r];'+
-      '[v][r]amix=inputs=2:duration=first:normalize=0[mix]',
-      '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
-    );
-    const data=ffmpeg.FS('readFile','baked.mp3');
+    const be=(baseFile.name.split('.').pop()||'m4a').toLowerCase();
+    ffmpeg.FS('writeFile','base.'+be, await fetchFile(baseFile));
+    const bv=(baseR.value/100).toFixed(3);
     const name=(document.getElementById('outName').value||'intro.mp3').trim();
+
+    if(overlayFile){
+      const oe=(overlayFile.name.split('.').pop()||'mp3').toLowerCase();
+      ffmpeg.FS('writeFile','ovl.'+oe, await fetchFile(overlayFile));
+      const ov=(ovlR.value/100).toFixed(3);
+      const delayMs=Math.round((posR.value/100)*(baseDur||0)*1000);
+      log(logEl,'laying the overlay on at '+(delayMs/1000).toFixed(1)+'s…');
+      await ffmpeg.run(
+        '-i','base.'+be,'-i','ovl.'+oe,
+        '-filter_complex',
+        '[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+'[b];'+
+        '[1:a]aresample=44100,aformat=channel_layouts=stereo,volume='+ov+',adelay='+delayMs+'|'+delayMs+'[o];'+
+        '[b][o]amix=inputs=2:duration=first:normalize=0[mix]',
+        '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
+      );
+    } else {
+      log(logEl,'exporting the base as your bumper…');
+      await ffmpeg.run(
+        '-i','base.'+be,
+        '-filter_complex','[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+'[mix]',
+        '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
+      );
+    }
+    const data=ffmpeg.FS('readFile','baked.mp3');
     finish(out, data, logEl, name, 'BUMPER BAKED');
     bar.style.width='100%';
   }catch(err){ log(logEl, err.message, 'err'); }
@@ -297,6 +376,8 @@ function finish(out, data, logEl, filename, label){
 }
 function stamp(){ const d=new Date();
   return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+
+refreshShow();
 </script>
 </body>
 </html>
