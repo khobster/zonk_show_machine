@@ -299,9 +299,18 @@ goBtn.onclick=async()=>{
   try{
     await boot(logEl,bar);
     log(logEl,'fetching the '+id+' bumpers…');
+    // load the committed bumpers ourselves (bypassing cache) so a stale cache or a real HTTP
+    // error reports honestly instead of always saying "couldn't find".
+    async function grabBumper(name){
+      let res;
+      try{ res=await fetch(name,{cache:'reload'}); }
+      catch(e){ throw new Error('network error loading '+name+' ('+e.message+')'); }
+      if(!res.ok) throw new Error('got HTTP '+res.status+' for '+name);
+      return new Uint8Array(await res.arrayBuffer());
+    }
     let intro,outro;
-    try{ intro=await fetchFile(introName); outro=await fetchFile(outroName); }
-    catch(e){ throw new Error('Couldn\'t find '+introName+' / '+outroName+' next to this page. Build them in the Build bumpers tab first.'); }
+    try{ intro=await grabBumper(introName); outro=await grabBumper(outroName); }
+    catch(e){ throw new Error('Could not load the '+id+' bumpers — '+e.message+'. If you just added them, hard-refresh (Cmd+Shift+R). Otherwise build them in the Build bumpers tab.'); }
     const ext=(voiceFile.name.split('.').pop()||'m4a').toLowerCase();
     ffmpeg.FS('writeFile','intro.mp3',intro);
     ffmpeg.FS('writeFile','outro.mp3',outro);
