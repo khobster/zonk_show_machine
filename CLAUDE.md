@@ -64,6 +64,15 @@ The app fetches `<show>-intro.mp3` / `<show>-outro.mp3` by RELATIVE path, so the
   the original amber-on-black AM-radio skin at Kevin's request, 2026-05-30. No Google Fonts.)
 
 ## Known constraints / gotchas
+- **The pinned core is ffmpeg ~4.3 (libavfilter 7.85, built 2020).** Filter options added in 4.4+ DO
+  NOT exist and make the whole filtergraph fail ("Option not found", no output file, surfaces in-app as
+  the readFile error). Specifically: `amix=...:normalize=0` and amix `weights=` are unavailable. To mix
+  two tracks at full level use `amix=inputs=2:duration=first,volume=2` (the `,volume=2` cancels amix's
+  default 1/n halving — mathematically identical to normalize=0). The Build-bumpers overlay uses this.
+  When adding filters, assume a 4.3-era featureset. (Verified by running the pinned core in Node:
+  `npm i @ffmpeg/ffmpeg@0.11.6 @ffmpeg/core@0.11.0`, `delete globalThis.fetch` so the old Emscripten
+  build uses fs, then `createFFmpeg({log:true})` to see the real ffmpeg stderr.)
+- The app surfaces the last ~16 ffmpeg log lines in-app on any failure (`dumpFFLog`) — read those first.
 - Must be served over http(s). It will NOT work opened as a `file://` from the desktop — the browser
   blocks the wasm core from loading. Test on the live Netlify URL or a local server (`python3 -m http.server`).
 - Input is iPhone .m4a (AAC). The 0.11.0 core decodes AAC fine. Other formats (wav/mp3/aac) also work.

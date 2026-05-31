@@ -224,9 +224,16 @@
 
 <script>
 const { createFFmpeg, fetchFile } = FFmpeg;
+let ffLog=[];
 const ffmpeg = createFFmpeg({
-  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+  log:false,
+  logger:({message})=>{ if(message){ ffLog.push(message); if(ffLog.length>600) ffLog.shift(); } }
 });
+function dumpFFLog(el){
+  const tail=ffLog.slice(-16).filter(Boolean);
+  if(tail.length) log(el,'— engine log —\n'+tail.join('\n'),'err');
+}
 let loaded = false;
 async function boot(logEl, bar){
   if(loaded) return;
@@ -286,7 +293,7 @@ wireDrop('voiceDrop','voiceInput','voiceLabel',f=>{ voiceFile=f; goBtn.disabled=
 
 goBtn.onclick=async()=>{
   const logEl=document.getElementById('showLog'), out=document.getElementById('showOut'), bar=document.getElementById('bar');
-  clear(logEl); out.innerHTML=''; bar.style.width='0'; goBtn.disabled=true;
+  clear(logEl); out.innerHTML=''; bar.style.width='0'; goBtn.disabled=true; ffLog=[];
   const id=showId();
   const introName=id+'-intro.mp3', outroName=id+'-outro.mp3';
   try{
@@ -313,7 +320,7 @@ goBtn.onclick=async()=>{
     const data=ffmpeg.FS('readFile','out.mp3');
     finish(out, data, logEl, id+'-'+stamp()+'.mp3', 'EPISODE READY');
     bar.style.width='100%';
-  }catch(err){ log(logEl, err.message, 'err'); }
+  }catch(err){ log(logEl, err.message, 'err'); dumpFFLog(logEl); }
   goBtn.disabled=false;
 };
 
@@ -354,7 +361,7 @@ wireDrop('overlayDrop','overlayInput','overlayLabel',f=>{
 
 bakeBtn.onclick=async()=>{
   const logEl=document.getElementById('setupLog'), out=document.getElementById('setupOut'), bar=document.getElementById('bar2');
-  clear(logEl); out.innerHTML=''; bar.style.width='0'; bakeBtn.disabled=true;
+  clear(logEl); out.innerHTML=''; bar.style.width='0'; bakeBtn.disabled=true; ffLog=[];
   try{
     await boot(logEl,bar);
     const be=(baseFile.name.split('.').pop()||'m4a').toLowerCase();
@@ -385,7 +392,9 @@ bakeBtn.onclick=async()=>{
         '-filter_complex',
         '[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+fade+'[b];'+
         '[1:a]aresample=44100,aformat=channel_layouts=stereo,volume='+ov+',adelay='+delayMs+'|'+delayMs+'[o];'+
-        '[b][o]amix=inputs=2:duration=first:normalize=0[mix]',
+        // amix default halves each input; ,volume=2 cancels that (== old :normalize=0, which this
+        // ffmpeg 4.3-era core doesn't support — it errors "Option 'normalize' not found").
+        '[b][o]amix=inputs=2:duration=first,volume=2[mix]',
         '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
       );
     } else {
@@ -399,7 +408,7 @@ bakeBtn.onclick=async()=>{
     const data=ffmpeg.FS('readFile','baked.mp3');
     finish(out, data, logEl, name, 'BUMPER BAKED');
     bar.style.width='100%';
-  }catch(err){ log(logEl, err.message, 'err'); }
+  }catch(err){ log(logEl, err.message, 'err'); dumpFFLog(logEl); }
   bakeBtn.disabled=false;
 };
 
