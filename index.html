@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Zonk Show — Overnight Board</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%99%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- enables cross-origin isolation on header-less static hosts (GitHub Pages) so the audio
+     engine loads in Firefox/Safari, not just Chrome. registers a SW + reloads once on first visit. -->
+<script src="coi-serviceworker.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <style>
   :root{
@@ -98,6 +101,9 @@
 
   label.row{display:block;margin:18px 0 8px;font-size:14px;color:var(--ink)}
   label.row span{color:var(--muted-2);font-weight:600}
+  .check{display:flex;align-items:center;gap:9px;margin:18px 0 0;
+    font-size:14px;color:var(--ink);cursor:pointer;user-select:none}
+  .check input{width:16px;height:16px;accent-color:var(--blue);cursor:pointer}
   input[type=range]{width:100%;accent-color:var(--blue)}
   input[type=text]{
     width:100%;background:var(--bg);border:2px solid var(--border);
@@ -197,6 +203,8 @@
 
     <label class="row">Base level: <span id="baseVal">100%</span></label>
     <input type="range" id="baseVol" min="5" max="100" value="100">
+
+    <label class="check"><input type="checkbox" id="fadeChk" checked> Smooth fade in and out</label>
 
     <label class="row">Making</label>
     <div class="kindtoggle">
@@ -354,6 +362,18 @@ bakeBtn.onclick=async()=>{
     const bv=(baseR.value/100).toFixed(3);
     const name=(document.getElementById('outName').value||'intro.mp3').trim();
 
+    // gentle fades on the base, scaled to its length (skip the fade-out if we couldn't read the duration)
+    let fade='';
+    if(document.getElementById('fadeChk').checked){
+      const fin=baseDur?Math.min(1.2,baseDur/4):1.0;
+      fade=',afade=t=in:st=0:d='+fin.toFixed(3);
+      if(baseDur){
+        const fout=Math.min(2.0,baseDur/3);
+        fade+=',afade=t=out:st='+(baseDur-fout).toFixed(3)+':d='+fout.toFixed(3);
+      }
+      log(logEl,'adding a smooth fade in and out…');
+    }
+
     if(overlayFile){
       const oe=(overlayFile.name.split('.').pop()||'mp3').toLowerCase();
       ffmpeg.FS('writeFile','ovl.'+oe, await fetchFile(overlayFile));
@@ -363,7 +383,7 @@ bakeBtn.onclick=async()=>{
       await ffmpeg.run(
         '-i','base.'+be,'-i','ovl.'+oe,
         '-filter_complex',
-        '[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+'[b];'+
+        '[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+fade+'[b];'+
         '[1:a]aresample=44100,aformat=channel_layouts=stereo,volume='+ov+',adelay='+delayMs+'|'+delayMs+'[o];'+
         '[b][o]amix=inputs=2:duration=first:normalize=0[mix]',
         '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
@@ -372,7 +392,7 @@ bakeBtn.onclick=async()=>{
       log(logEl,'exporting the base as your bumper…');
       await ffmpeg.run(
         '-i','base.'+be,
-        '-filter_complex','[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+'[mix]',
+        '-filter_complex','[0:a]aresample=44100,aformat=channel_layouts=stereo,volume='+bv+fade+'[mix]',
         '-map','[mix]','-c:a','libmp3lame','-b:a','128k','baked.mp3'
       );
     }

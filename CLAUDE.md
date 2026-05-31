@@ -46,6 +46,16 @@ The app fetches `<show>-intro.mp3` / `<show>-outro.mp3` by RELATIVE path, so the
   SharedArrayBuffer, which forces COOP/COEP + CORP on every subresource and breaks the zero-config deploy).
 - **Do not add COOP/COEP headers** to netlify.toml unless you've intentionally moved to the mt core
   and verified the cross-origin CDN subresources still load.
+- **Cross-browser fix (2026-05-30): `coi-serviceworker.js` is loaded first in `<head>` on purpose.**
+  The pinned ST core 0.11.0 still has bare `instanceof SharedArrayBuffer` refs. Chrome/Edge expose the
+  SharedArrayBuffer global even without isolation so it runs there, but Firefox/Safari hide it →
+  "SharedArrayBuffer is not defined" and the engine never loads. GitHub Pages can't send COOP/COEP
+  headers, so the coi-serviceworker (Guido Zuidhof, MIT, v0.1.7, require-corp mode) injects them
+  client-side via a service worker and reloads once on first visit, making the page crossOriginIsolated
+  everywhere. This is SAFE with the unpkg CDN because unpkg serves the core js/wasm/worker with
+  `cross-origin-resource-policy: cross-origin` + `access-control-allow-origin: *`, which satisfy COEP
+  require-corp (verified). Don't remove it, and keep it the FIRST script tag. (The page must be served
+  over https for the SW to register — it is on GitHub Pages.)
 - `loudnorm` is intentionally single-pass — accurate enough for short nightly episodes, and fast.
 - Single HTML file, no bundler, no npm build step. This is a deliberate preference.
 - Aesthetic: matches the Arugula Motors house style (arugulamotors.com) — white background, near-black
