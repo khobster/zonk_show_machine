@@ -22,6 +22,15 @@ the repo root, and type their id in the Show field. No code change needed. (Opti
 
 ## Two modes (tabs in index.html)
 - **TONIGHT'S SHOW**: concat `<show>-intro.mp3` + voice memo + `<show>-outro.mp3`, then `loudnorm=I=-16:TP=-1.5:LRA=11`.
+  - **Guest call segment (added 2026-06-03)**: an optional second drop for a phone call recorded
+    with iOS native call recording. When present the concat becomes intro + memo + call + outro
+    (`concat=n=4`). The Apple "this call is being recorded" robot notice at the head of the file is
+    auto-skipped: a `silencedetect=noise=-33dB:d=0.25` analysis pass (first 12s only, `-f null -`)
+    finds the first silence gap that starts after 0.6s and ends inside 10s — the notice is the first
+    burst of sound, so that gap's `silence_end` is where the conversation starts — and the guest
+    chain gets `atrim=start=<end>,asetpts=PTS-STARTPTS`. No clean gap found → flat 3.0s fallback,
+    logged honestly either way. A checkbox (default ON) disables the skip for notice-less files, and
+    a "no guest tonight" link removes a dropped call.
 - **BUILD BUMPERS** (one-time per show): drop a **base track** (a music bed, or a finished clip on its
   own) plus an **optional overlay** (a voice tag/sting/sound). Sliders set where the overlay comes in
   (position, as a fraction of the base length via `adelay`) and the base/overlay levels, then it
@@ -73,6 +82,11 @@ The app fetches `<show>-intro.mp3` / `<show>-outro.mp3` by RELATIVE path, so the
   `npm i @ffmpeg/ffmpeg@0.11.6 @ffmpeg/core@0.11.0`, `delete globalThis.fetch` so the old Emscripten
   build uses fs, then `createFFmpeg({log:true})` to see the real ffmpeg stderr.)
 - The app surfaces the last ~16 ffmpeg log lines in-app on any failure (`dumpFFLog`) — read those first.
+- **Logger gotcha (found 2026-06-03): the `logger:` option of `createFFmpeg()` is BROKEN in
+  @ffmpeg/ffmpeg 0.11.6** — it's destructured in createFFmpeg.js but never assigned to the internal
+  customLogger, so it silently captures nothing. Use `ffmpeg.setLogger(...)` after creation instead
+  (the app does, as of the guest-call commit). Anything that parses ffmpeg output (dumpFFLog, the
+  silencedetect notice-trim) depends on this.
 - Must be served over http(s). It will NOT work opened as a `file://` from the desktop — the browser
   blocks the wasm core from loading. Test on the live Netlify URL or a local server (`python3 -m http.server`).
 - Input is iPhone .m4a (AAC). The 0.11.0 core decodes AAC fine. Other formats (wav/mp3/aac) also work.

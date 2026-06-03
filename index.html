@@ -136,6 +136,10 @@
   a.dl:hover{background:var(--blue-hot)}
   a.dl:active{transform:translateY(1px)}
 
+  a.clearlink{display:inline-block;margin-top:10px;font-size:13px;color:var(--faint);
+    text-decoration:none;border-bottom:1px solid var(--border)}
+  a.clearlink:hover{color:var(--red);border-color:var(--red)}
+
   .hide{display:none}
   .note{font-size:13px;color:var(--faint);line-height:1.55;margin-top:18px;
     border-top:1px solid var(--border);padding-top:14px}
@@ -171,6 +175,15 @@
       <input type="file" id="voiceInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
       <div class="big" id="voiceLabel">Drop voice memo</div>
       <div class="small">or tap to pick the file you AirDropped over</div>
+    </div>
+    <div class="drop optional" id="guestDrop">
+      <input type="file" id="guestInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
+      <div class="big" id="guestLabel">Drop guest call (optional)</div>
+      <div class="small">a phone call recorded on your iPhone, goes in after your memo</div>
+    </div>
+    <div class="hide" id="guestExtras">
+      <label class="check"><input type="checkbox" id="noticeChk" checked> Skip the "this call is being recorded" notice at the start</label>
+      <a href="#" class="clearlink" id="guestClear">✕ no guest tonight, take the call back out</a>
     </div>
     <button class="btn" id="goBtn" disabled>Assemble episode</button>
     <div class="meter"><i id="bar"></i></div>
@@ -227,9 +240,11 @@ const { createFFmpeg, fetchFile } = FFmpeg;
 let ffLog=[];
 const ffmpeg = createFFmpeg({
   corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-  log:false,
-  logger:({message})=>{ if(message){ ffLog.push(message); if(ffLog.length>600) ffLog.shift(); } }
+  log:false
 });
+// NOTE: must use setLogger(), not the createFFmpeg logger option — in @ffmpeg/ffmpeg 0.11.6
+// that option is destructured but never wired up, so it silently captures nothing.
+ffmpeg.setLogger(({message})=>{ if(message){ ffLog.push(message); if(ffLog.length>600) ffLog.shift(); } });
 function dumpFFLog(el){
   const tail=ffLog.slice(-16).filter(Boolean);
   if(tail.length) log(el,'— engine log —\n'+tail.join('\n'),'err');
@@ -287,9 +302,43 @@ function wireDrop(dropId, inputId, labelId, onFile){
 }
 
 /* ---- TONIGHT'S SHOW ---- */
-let voiceFile=null;
+let voiceFile=null, guestFile=null;
 const goBtn=document.getElementById('goBtn');
 wireDrop('voiceDrop','voiceInput','voiceLabel',f=>{ voiceFile=f; goBtn.disabled=false; });
+wireDrop('guestDrop','guestInput','guestLabel',f=>{
+  guestFile=f;
+  document.getElementById('guestExtras').classList.remove('hide');
+});
+document.getElementById('guestClear').onclick=e=>{
+  e.preventDefault();
+  guestFile=null;
+  document.getElementById('guestInput').value='';
+  const drop=document.getElementById('guestDrop');
+  drop.classList.remove('loaded');
+  document.getElementById('guestLabel').textContent='Drop guest call (optional)';
+  document.getElementById('guestExtras').classList.add('hide');
+};
+
+/* find where the iOS "this call is being recorded" robot notice ends, so we can cut it.
+   one quick silencedetect pass over the head of the call: the notice is the first burst of
+   sound, so the first real gap of silence after it is where the conversation starts. if no
+   clean gap shows up, fall back to a flat 3s trim. */
+async function detectNoticeEnd(ext){
+  ffLog=[];
+  try{
+    await ffmpeg.run('-i','guest.'+ext,'-af','silencedetect=noise=-33dB:d=0.25','-t','12','-f','null','-');
+  }catch(e){ /* analysis pass; the parse below just finds nothing */ }
+  const pairs=[]; let cur=null;
+  for(const m of ffLog){
+    const s=m.match(/silence_start:\s*(-?[\d.]+)/);
+    if(s){ cur=parseFloat(s[1]); continue; }
+    const e2=m.match(/silence_end:\s*([\d.]+)/);
+    if(e2 && cur!==null){ pairs.push({start:cur,end:parseFloat(e2[1])}); cur=null; }
+  }
+  // first silence that starts after the notice has had time to play, ending within the head
+  const hit=pairs.find(p=>p.start>0.6 && p.start<8 && p.end<10);
+  return hit?hit.end:3.0;
+}
 
 goBtn.onclick=async()=>{
   const logEl=document.getElementById('showLog'), out=document.getElementById('showOut'), bar=document.getElementById('bar');
@@ -315,17 +364,43 @@ goBtn.onclick=async()=>{
     ffmpeg.FS('writeFile','intro.mp3',intro);
     ffmpeg.FS('writeFile','outro.mp3',outro);
     ffmpeg.FS('writeFile','voice.'+ext, await fetchFile(voiceFile));
-    log(logEl,'stitching intro + you + outro, then leveling to -16 LUFS…');
-    await ffmpeg.run(
-      '-i','intro.mp3','-i','voice.'+ext,'-i','outro.mp3',
-      '-filter_complex',
-      '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
-      '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
-      '[2:a]aresample=44100,aformat=channel_layouts=stereo[a2];'+
-      '[a0][a1][a2]concat=n=3:v=0:a=1[c];'+
-      '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
-      '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
-    );
+
+    if(guestFile){
+      const gext=(guestFile.name.split('.').pop()||'m4a').toLowerCase();
+      ffmpeg.FS('writeFile','guest.'+gext, await fetchFile(guestFile));
+      let gtrim=0;
+      if(document.getElementById('noticeChk').checked){
+        log(logEl,'finding the end of the recorded-call notice…');
+        gtrim=await detectNoticeEnd(gext);
+        log(logEl,'skipping the first '+gtrim.toFixed(1)+'s of the call.');
+      }
+      ffLog=[];
+      const gchain=(gtrim>0?'atrim=start='+gtrim.toFixed(2)+',asetpts=PTS-STARTPTS,':'');
+      log(logEl,'stitching intro + you + guest + outro, then leveling to -16 LUFS…');
+      await ffmpeg.run(
+        '-i','intro.mp3','-i','voice.'+ext,'-i','guest.'+gext,'-i','outro.mp3',
+        '-filter_complex',
+        '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
+        '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
+        '[2:a]'+gchain+'aresample=44100,aformat=channel_layouts=stereo[a2];'+
+        '[3:a]aresample=44100,aformat=channel_layouts=stereo[a3];'+
+        '[a0][a1][a2][a3]concat=n=4:v=0:a=1[c];'+
+        '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
+        '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
+      );
+    } else {
+      log(logEl,'stitching intro + you + outro, then leveling to -16 LUFS…');
+      await ffmpeg.run(
+        '-i','intro.mp3','-i','voice.'+ext,'-i','outro.mp3',
+        '-filter_complex',
+        '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
+        '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
+        '[2:a]aresample=44100,aformat=channel_layouts=stereo[a2];'+
+        '[a0][a1][a2]concat=n=3:v=0:a=1[c];'+
+        '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
+        '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
+      );
+    }
     const data=ffmpeg.FS('readFile','out.mp3');
     finish(out, data, logEl, id+'-'+stamp()+'.mp3', 'EPISODE READY');
     bar.style.width='100%';
