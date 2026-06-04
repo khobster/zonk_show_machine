@@ -136,9 +136,23 @@
   a.dl:hover{background:var(--blue-hot)}
   a.dl:active{transform:translateY(1px)}
 
-  a.clearlink{display:inline-block;margin-top:10px;font-size:13px;color:var(--faint);
-    text-decoration:none;border-bottom:1px solid var(--border)}
-  a.clearlink:hover{color:var(--red);border-color:var(--red)}
+  .seg{display:flex;align-items:center;gap:9px;border:1px solid var(--border);
+    border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+  .seg .num{font-family:var(--mono);font-size:12px;color:var(--faint);width:16px;text-align:center;flex:none}
+  .seg .name{flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seg .kindsm{display:flex;gap:4px;flex:none}
+  .seg .kindsm button{font:inherit;font-size:12px;font-weight:600;padding:4px 11px;
+    border-radius:999px;border:1px solid var(--border);background:var(--bg);
+    color:var(--muted-2);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+  .seg .kindsm button:hover{border-color:#c4c4c4}
+  .seg .kindsm button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .seg .ctl{display:flex;gap:3px;flex:none}
+  .seg .ctl button{font:inherit;font-size:13px;width:27px;height:27px;line-height:1;
+    border-radius:8px;border:1px solid var(--border);background:var(--bg);
+    color:var(--muted-2);cursor:pointer;transition:border-color .15s,color .15s}
+  .seg .ctl button:hover{border-color:#c4c4c4}
+  .seg .ctl button:disabled{opacity:.3;cursor:default}
+  .seg .ctl button.x:hover{color:var(--red);border-color:var(--red)}
 
   .hide{display:none}
   .note{font-size:13px;color:var(--faint);line-height:1.55;margin-top:18px;
@@ -170,21 +184,14 @@
 
   <!-- ===== TONIGHT'S SHOW ===== -->
   <div class="card" id="show">
-    <p class="step">Drop in tonight's voice memo. The intro and outro for this show get added, audio gets leveled, you get one file to upload.</p>
-    <div class="drop" id="voiceDrop">
-      <input type="file" id="voiceInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
-      <div class="big" id="voiceLabel">Drop voice memo</div>
-      <div class="small">or tap to pick the file you AirDropped over</div>
+    <p class="step">Build tonight's rundown. Drop in voice memos and recorded calls, in any order, then put them in show order. The intro and outro for this show get added, calls lose the robot notice, audio gets leveled, you get one file to upload.</p>
+    <div id="rundown"></div>
+    <div class="drop" id="segDrop">
+      <input type="file" id="segInput" accept="audio/*,.m4a,.mp3,.wav,.aac" multiple class="hide">
+      <div class="big">Drop a segment</div>
+      <div class="small">a voice memo or a recorded call — several at once is fine</div>
     </div>
-    <div class="drop optional" id="guestDrop">
-      <input type="file" id="guestInput" accept="audio/*,.m4a,.mp3,.wav,.aac" class="hide">
-      <div class="big" id="guestLabel">Drop guest call (optional)</div>
-      <div class="small">a phone call recorded on your iPhone, goes in after your memo</div>
-    </div>
-    <div class="hide" id="guestExtras">
-      <label class="check"><input type="checkbox" id="noticeChk" checked> Skip the "this call is being recorded" notice at the start</label>
-      <a href="#" class="clearlink" id="guestClear">✕ no guest tonight, take the call back out</a>
-    </div>
+    <label class="check hide" id="noticeRow"><input type="checkbox" id="noticeChk" checked> Skip the "this call is being recorded" notice on calls</label>
     <button class="btn" id="goBtn" disabled>Assemble episode</button>
     <div class="meter"><i id="bar"></i></div>
     <p class="hint">First load pulls the audio engine, about 25MB. Give it ~20 seconds. It caches after that.</p>
@@ -301,32 +308,57 @@ function wireDrop(dropId, inputId, labelId, onFile){
   function set(f){ drop.classList.add('loaded'); label.textContent='✓ '+f.name; onFile(f); }
 }
 
-/* ---- TONIGHT'S SHOW ---- */
-let voiceFile=null, guestFile=null;
+/* ---- TONIGHT'S SHOW: the rundown ---- */
+let segs=[]; // {file, kind:'memo'|'call'} in show order
 const goBtn=document.getElementById('goBtn');
-wireDrop('voiceDrop','voiceInput','voiceLabel',f=>{ voiceFile=f; goBtn.disabled=false; });
-wireDrop('guestDrop','guestInput','guestLabel',f=>{
-  guestFile=f;
-  document.getElementById('guestExtras').classList.remove('hide');
-});
-document.getElementById('guestClear').onclick=e=>{
-  e.preventDefault();
-  guestFile=null;
-  document.getElementById('guestInput').value='';
-  const drop=document.getElementById('guestDrop');
-  drop.classList.remove('loaded');
-  document.getElementById('guestLabel').textContent='Drop guest call (optional)';
-  document.getElementById('guestExtras').classList.add('hide');
-};
+const rundownEl=document.getElementById('rundown');
+const noticeRow=document.getElementById('noticeRow');
+
+// iOS names call recordings like "Call with Jim.m4a", so default those to Call
+function guessKind(name){ return /call/i.test(name)?'call':'memo'; }
+function addSegs(files){ for(const f of files) segs.push({file:f,kind:guessKind(f.name)}); renderRundown(); }
+
+function renderRundown(){
+  rundownEl.innerHTML='';
+  segs.forEach((s,i)=>{
+    const row=document.createElement('div'); row.className='seg';
+    row.innerHTML='<span class="num">'+(i+1)+'</span><span class="name"></span>'+
+      '<span class="kindsm"><button data-k="memo">Memo</button><button data-k="call">Call</button></span>'+
+      '<span class="ctl"><button class="up" title="move up">↑</button>'+
+      '<button class="dn" title="move down">↓</button>'+
+      '<button class="x" title="remove">✕</button></span>';
+    row.querySelector('.name').textContent=s.file.name;
+    row.querySelectorAll('.kindsm button').forEach(b=>{
+      b.classList.toggle('on', s.kind===b.dataset.k);
+      b.onclick=()=>{ s.kind=b.dataset.k; renderRundown(); };
+    });
+    const up=row.querySelector('.up'), dn=row.querySelector('.dn');
+    up.disabled=(i===0); dn.disabled=(i===segs.length-1);
+    up.onclick=()=>{ [segs[i-1],segs[i]]=[segs[i],segs[i-1]]; renderRundown(); };
+    dn.onclick=()=>{ [segs[i],segs[i+1]]=[segs[i+1],segs[i]]; renderRundown(); };
+    row.querySelector('.x').onclick=()=>{ segs.splice(i,1); renderRundown(); };
+    rundownEl.appendChild(row);
+  });
+  goBtn.disabled=(segs.length===0);
+  noticeRow.classList.toggle('hide', !segs.some(s=>s.kind==='call'));
+}
+
+const segDrop=document.getElementById('segDrop'), segInput=document.getElementById('segInput');
+segDrop.onclick=()=>segInput.click();
+segInput.onchange=()=>{ if(segInput.files.length){ addSegs([...segInput.files]); segInput.value=''; } };
+segDrop.ondragover=e=>{e.preventDefault();segDrop.classList.add('hot')};
+segDrop.ondragleave=()=>segDrop.classList.remove('hot');
+segDrop.ondrop=e=>{e.preventDefault();segDrop.classList.remove('hot');
+  if(e.dataTransfer.files.length) addSegs([...e.dataTransfer.files]);};
 
 /* find where the iOS "this call is being recorded" robot notice ends, so we can cut it.
    one quick silencedetect pass over the head of the call: the notice is the first burst of
    sound, so the first real gap of silence after it is where the conversation starts. if no
    clean gap shows up, fall back to a flat 3s trim. */
-async function detectNoticeEnd(ext){
+async function detectNoticeEnd(fsName){
   ffLog=[];
   try{
-    await ffmpeg.run('-i','guest.'+ext,'-af','silencedetect=noise=-33dB:d=0.25','-t','12','-f','null','-');
+    await ffmpeg.run('-i',fsName,'-af','silencedetect=noise=-33dB:d=0.25','-t','12','-f','null','-');
   }catch(e){ /* analysis pass; the parse below just finds nothing */ }
   const pairs=[]; let cur=null;
   for(const m of ffLog){
@@ -360,47 +392,44 @@ goBtn.onclick=async()=>{
     let intro,outro;
     try{ intro=await grabBumper(introName); outro=await grabBumper(outroName); }
     catch(e){ throw new Error('Could not load the '+id+' bumpers — '+e.message+'. If you just added them, hard-refresh (Cmd+Shift+R). Otherwise build them in the Build bumpers tab.'); }
-    const ext=(voiceFile.name.split('.').pop()||'m4a').toLowerCase();
     ffmpeg.FS('writeFile','intro.mp3',intro);
     ffmpeg.FS('writeFile','outro.mp3',outro);
-    ffmpeg.FS('writeFile','voice.'+ext, await fetchFile(voiceFile));
-
-    if(guestFile){
-      const gext=(guestFile.name.split('.').pop()||'m4a').toLowerCase();
-      ffmpeg.FS('writeFile','guest.'+gext, await fetchFile(guestFile));
-      let gtrim=0;
-      if(document.getElementById('noticeChk').checked){
-        log(logEl,'finding the end of the recorded-call notice…');
-        gtrim=await detectNoticeEnd(gext);
-        log(logEl,'skipping the first '+gtrim.toFixed(1)+'s of the call.');
-      }
-      ffLog=[];
-      const gchain=(gtrim>0?'atrim=start='+gtrim.toFixed(2)+',asetpts=PTS-STARTPTS,':'');
-      log(logEl,'stitching intro + you + guest + outro, then leveling to -16 LUFS…');
-      await ffmpeg.run(
-        '-i','intro.mp3','-i','voice.'+ext,'-i','guest.'+gext,'-i','outro.mp3',
-        '-filter_complex',
-        '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
-        '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
-        '[2:a]'+gchain+'aresample=44100,aformat=channel_layouts=stereo[a2];'+
-        '[3:a]aresample=44100,aformat=channel_layouts=stereo[a3];'+
-        '[a0][a1][a2][a3]concat=n=4:v=0:a=1[c];'+
-        '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
-        '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
-      );
-    } else {
-      log(logEl,'stitching intro + you + outro, then leveling to -16 LUFS…');
-      await ffmpeg.run(
-        '-i','intro.mp3','-i','voice.'+ext,'-i','outro.mp3',
-        '-filter_complex',
-        '[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];'+
-        '[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];'+
-        '[2:a]aresample=44100,aformat=channel_layouts=stereo[a2];'+
-        '[a0][a1][a2]concat=n=3:v=0:a=1[c];'+
-        '[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]',
-        '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3'
-      );
+    const segNames=[];
+    for(let i=0;i<segs.length;i++){
+      const ext=(segs[i].file.name.split('.').pop()||'m4a').toLowerCase();
+      segNames.push('seg'+i+'.'+ext);
+      ffmpeg.FS('writeFile',segNames[i], await fetchFile(segs[i].file));
     }
+
+    // each call segment gets its own robot-notice trim
+    const trims=segs.map(()=>0);
+    if(document.getElementById('noticeChk').checked){
+      for(let i=0;i<segs.length;i++){
+        if(segs[i].kind!=='call') continue;
+        log(logEl,'finding the end of the recorded-call notice in segment '+(i+1)+'…');
+        trims[i]=await detectNoticeEnd(segNames[i]);
+        log(logEl,'skipping the first '+trims[i].toFixed(1)+'s of segment '+(i+1)+'.');
+      }
+    }
+
+    // intro + every segment in rundown order + outro, one dynamic concat
+    ffLog=[];
+    const n=segs.length+2;
+    const inputs=['-i','intro.mp3'];
+    segNames.forEach(s=>inputs.push('-i',s));
+    inputs.push('-i','outro.mp3');
+    let fc='[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];', heads='[a0]';
+    segNames.forEach((s,i)=>{
+      const t=(trims[i]>0?'atrim=start='+trims[i].toFixed(2)+',asetpts=PTS-STARTPTS,':'');
+      fc+='['+(i+1)+':a]'+t+'aresample=44100,aformat=channel_layouts=stereo[a'+(i+1)+'];';
+      heads+='[a'+(i+1)+']';
+    });
+    fc+='['+(n-1)+':a]aresample=44100,aformat=channel_layouts=stereo[a'+(n-1)+'];';
+    heads+='[a'+(n-1)+']';
+    fc+=heads+'concat=n='+n+':v=0:a=1[c];[c]loudnorm=I=-16:TP=-1.5:LRA=11[out]';
+    log(logEl,'stitching intro + '+segs.length+' segment'+(segs.length>1?'s':'')+' + outro, then leveling to -16 LUFS…');
+    await ffmpeg.run(...inputs,'-filter_complex',fc,
+      '-map','[out]','-c:a','libmp3lame','-b:a','128k','out.mp3');
     const data=ffmpeg.FS('readFile','out.mp3');
     finish(out, data, logEl, id+'-'+stamp()+'.mp3', 'EPISODE READY');
     bar.style.width='100%';

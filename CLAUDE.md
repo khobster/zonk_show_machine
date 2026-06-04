@@ -21,16 +21,21 @@ the repo root, and type their id in the Show field. No code change needed. (Opti
 (lowercased, non `[a-z0-9-]` → `-`).
 
 ## Two modes (tabs in index.html)
-- **TONIGHT'S SHOW**: concat `<show>-intro.mp3` + voice memo + `<show>-outro.mp3`, then `loudnorm=I=-16:TP=-1.5:LRA=11`.
-  - **Guest call segment (added 2026-06-03)**: an optional second drop for a phone call recorded
-    with iOS native call recording. When present the concat becomes intro + memo + call + outro
-    (`concat=n=4`). The Apple "this call is being recorded" robot notice at the head of the file is
-    auto-skipped: a `silencedetect=noise=-33dB:d=0.25` analysis pass (first 12s only, `-f null -`)
-    finds the first silence gap that starts after 0.6s and ends inside 10s — the notice is the first
-    burst of sound, so that gap's `silence_end` is where the conversation starts — and the guest
-    chain gets `atrim=start=<end>,asetpts=PTS-STARTPTS`. No clean gap found → flat 3.0s fallback,
-    logged honestly either way. A checkbox (default ON) disables the skip for notice-less files, and
-    a "no guest tonight" link removes a dropped call.
+- **TONIGHT'S SHOW — the rundown board (rebuilt 2026-06-03)**: an ordered list of segments. Drop
+  any number of audio files (multi-file drop works); each becomes a row with a **Memo / Call** pill
+  toggle, ↑ ↓ reorder buttons, and ✕ remove. Assemble concats `<show>-intro.mp3` + every segment in
+  rundown order + `<show>-outro.mp3` (dynamic `concat=n=<segs+2>`), then
+  `loudnorm=I=-16:TP=-1.5:LRA=11`. Files whose name contains "call" default to Call (iOS names its
+  call recordings "Call with ...").
+  - **Call segments and the robot notice**: each Call segment gets its OWN auto-trim of Apple's
+    "this call is being recorded" notice. Per call, a `silencedetect=noise=-33dB:d=0.25` analysis
+    pass (first 12s only, `-f null -`) finds the first silence gap that starts after 0.6s and ends
+    inside 10s — the notice is the first burst of sound, so that gap's `silence_end` is where the
+    conversation starts — and that segment's chain gets `atrim=start=<end>,asetpts=PTS-STARTPTS`.
+    No clean gap found → flat 3.0s fallback, logged honestly either way. One checkbox (default ON,
+    shown only when a Call is in the rundown) disables the skip for all calls; mark a notice-less
+    file as Memo to exempt just one. Verified on the pinned core in Node: 4-segment rundown
+    (memo/call/memo/call), per-call trims detected independently, output duration exact.
 - **BUILD BUMPERS** (one-time per show): drop a **base track** (a music bed, or a finished clip on its
   own) plus an **optional overlay** (a voice tag/sting/sound). Sliders set where the overlay comes in
   (position, as a fraction of the base length via `adelay`) and the base/overlay levels, then it
